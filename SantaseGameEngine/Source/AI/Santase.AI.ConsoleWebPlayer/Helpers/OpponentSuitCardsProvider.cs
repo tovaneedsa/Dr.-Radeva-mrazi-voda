@@ -1,8 +1,8 @@
-﻿namespace Santase.AI.SmartPlayer.Helpers
+﻿namespace Santase.AI.ConsoleWebPlayer.Helpers
 {
     using System.Collections.Generic;
     using System.Linq;
-
+    
     using Logic.Cards;
 
     // TODO: Unit test this class

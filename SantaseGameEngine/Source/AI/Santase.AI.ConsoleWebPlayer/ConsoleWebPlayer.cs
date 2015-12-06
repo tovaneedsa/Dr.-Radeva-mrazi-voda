@@ -1,12 +1,15 @@
-﻿namespace Santase.AI.SmartPlayer
+﻿namespace Santase.AI.ConsoleWebPlayer
 {
-    using Helpers;
     using Logic;
     using Logic.Cards;
     using Logic.Players;
+    using Helpers;
+    using Common;
+
     using System;
     using System.Collections.Generic;
     using System.Linq;
+
 
     // Overall strategy can be based on the game score. When opponent is close to the winning the player should be riskier.
     public class ConsoleWebPlayer : BasePlayer
@@ -64,7 +67,7 @@
             }
 
             var shouldCloseGame = this.PlayerActionValidator.IsValid(PlayerAction.CloseGame(), context, this.Cards)
-                                  && this.Cards.Count(x => x.Suit == context.TrumpCard.Suit) == 5 && currentAllPoints >= 61;
+                                  && (this.Cards.Count(x => x.Suit == context.TrumpCard.Suit) == 5 || currentAllPoints >= WebPlayerConstants.MinimumPointsForClosingGame);
             if (shouldCloseGame)
             {
                 GlobalStats.GamesClosedByPlayer++;

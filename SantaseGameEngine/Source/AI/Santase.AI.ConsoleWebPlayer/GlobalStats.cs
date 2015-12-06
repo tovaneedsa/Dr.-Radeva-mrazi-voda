@@ -1,4 +1,4 @@
-﻿namespace Santase.AI.SmartPlayer
+﻿namespace Santase.AI.ConsoleWebPlayer
 {
     public static class GlobalStats
     {
