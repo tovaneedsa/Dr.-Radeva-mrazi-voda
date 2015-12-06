@@ -14,11 +14,16 @@
     // Overall strategy can be based on the game score. When opponent is close to the winning the player should be riskier.
     public class ConsoleWebPlayer : BasePlayer
     {
+        public ConsoleWebPlayer(string name = "Console Web Player")
+        {
+            this.Name = name;
+        }
+
         private readonly ICollection<Card> playedCards = new List<Card>();
 
         private readonly OpponentSuitCardsProvider opponentSuitCardsProvider = new OpponentSuitCardsProvider();
 
-        public override string Name => "Console Web Player";
+        public override string Name { get; }
 
         public override PlayerAction GetTurn(PlayerTurnContext context)
         {
@@ -106,6 +111,7 @@
                                            context.TrumpCard,
                                            context.TrumpCard.Suit)
                                            .OrderByDescending(x => x.GetValue()).FirstOrDefault();
+
             var myBiggestTrumpCard = possibleCardsToPlay.Where(x => x.Suit == context.TrumpCard.Suit)
                                                         .OrderByDescending(x => x.GetValue())
                                                         .FirstOrDefault();
