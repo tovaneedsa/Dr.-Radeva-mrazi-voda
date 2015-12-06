@@ -52,9 +52,19 @@
         // TODO: Improve close game decision
         private bool CloseGame(PlayerTurnContext context)
         {
+            // If we have 61 points in the hand, it is possible to win the game with it;
+            int currentAllPoints = 0;
+            foreach (var card in this.Cards)
+            {
+                currentAllPoints += card.GetValue();
+                if (card.Type == CardType.Queen && this.AnnounceValidator.GetPossibleAnnounce(this.Cards, card, context.TrumpCard) == Announce.Forty)
+                {
+                    currentAllPoints += 40;
+                }
+            }
 
             var shouldCloseGame = this.PlayerActionValidator.IsValid(PlayerAction.CloseGame(), context, this.Cards)
-                                  && this.Cards.Count(x => x.Suit == context.TrumpCard.Suit) == 5;
+                                  && this.Cards.Count(x => x.Suit == context.TrumpCard.Suit) == 5 && currentAllPoints >= 61;
             if (shouldCloseGame)
             {
                 GlobalStats.GamesClosedByPlayer++;
