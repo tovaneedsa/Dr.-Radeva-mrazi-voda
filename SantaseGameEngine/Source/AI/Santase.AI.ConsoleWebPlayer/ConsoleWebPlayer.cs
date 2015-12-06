@@ -67,7 +67,8 @@
             }
 
             var shouldCloseGame = this.PlayerActionValidator.IsValid(PlayerAction.CloseGame(), context, this.Cards)
-                                  && (this.Cards.Count(x => x.Suit == context.TrumpCard.Suit) == 5 || currentAllPoints >= WebPlayerConstants.MinimumPointsForClosingGame);
+                                  && (this.Cards.Count(x => x.Suit == context.TrumpCard.Suit) == WebPlayerConstants.HasEnoughTrumpCards
+                                  || currentAllPoints >= WebPlayerConstants.MinimumPointsForClosingGame);
             if (shouldCloseGame)
             {
                 GlobalStats.GamesClosedByPlayer++;
