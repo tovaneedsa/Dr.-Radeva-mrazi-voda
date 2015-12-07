@@ -1,12 +1,11 @@
 ﻿namespace Santase.AI.ConsoleWebPlayer
 {
     using Common;
-    using Helpers;
     using Logic;
     using Logic.Cards;
     using Logic.Players;
+    using Helpers;
 
-    using System;
     using System.Collections.Generic;
     using System.Linq;
 
@@ -26,7 +25,7 @@
 
         private readonly ICollection<Card> playedCards = new List<Card>();
 
-        private readonly OpponentSuitCardsProvider opponentSuitCardsProvider = new OpponentSuitCardsProvider();
+        private readonly OpponentCards opponentCards = new OpponentCards();
 
         public override PlayerAction GetTurn(PlayerTurnContext context)
         {
@@ -79,12 +78,6 @@
             return shouldCloseGame;
         }
 
-        // TODO: Improve choosing best card to play
-        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         private PlayerAction ChooseCard(PlayerTurnContext context)
         {
             var orderedCardsByPower = this.PlayerActionValidator.GetPossibleCardsToPlay(context, this.Cards)
@@ -95,7 +88,7 @@
             {
                 if (context.IsFirstPlayerTurn)
                 {
-                    return this.ChooseCardWhenPlayingFirstAndWeHaveTheSameSuitCard(context, orderedCardsByPower);
+                    return this.ChooseCardWhenPlayingFirst(context, orderedCardsByPower);
                 }
                 else
                 {
@@ -116,26 +109,25 @@
             }
         }
 
-        private PlayerAction ChooseCardWhenPlayingFirst(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
+        private PlayerAction ChooseCardWhenPlayingFirst(PlayerTurnContext context, ICollection<Card> orderedCardsByPower)
         {
-            // Announce 40 or 20 if possible
-            var action = this.TryToAnnounceTwentyOrFourty(context, possibleCardsToPlay);
+            var action = this.TryToAnnounceTwentyOrFourty(context, orderedCardsByPower);
             if (action != null)
             {
                 return action;
             }
 
-            // If the player is close to the win => play trump card which will surely win the trick
-            var opponentBiggestTrumpCard = this.opponentSuitCardsProvider.GetOpponentCards(
+            var opponentBiggestTrumpCard = this.opponentCards.GetOpponentCards(
                                            this.Cards,
                                            this.playedCards,
                                            context.TrumpCard,
                                            context.TrumpCard.Suit)
-                                           .OrderByDescending(x => x.GetValue()).FirstOrDefault();
+                                           .OrderByDescending(x => x.GetValue())
+                                           .FirstOrDefault();
 
-            var myBiggestTrumpCard = possibleCardsToPlay.Where(x => x.Suit == context.TrumpCard.Suit)
-                                                        .OrderByDescending(x => x.GetValue())
-                                                        .FirstOrDefault();
+            var myBiggestTrumpCard = orderedCardsByPower
+                                            .Where(x => x.Suit == context.TrumpCard.Suit)    
+                                            .FirstOrDefault();
 
             if (context.FirstPlayerRoundPoints >= 64 - myBiggestTrumpCard?.GetValue())
             {
@@ -145,9 +137,91 @@
                 }
             }
 
-            // Smallest non-trump card from the shortest opponent suit
-            var cardToPlay = possibleCardsToPlay.Where(x => x.Suit != context.TrumpCard.Suit)
-                            .OrderBy(x => this.opponentSuitCardsProvider.GetOpponentCards(
+            // If we have Ace and opponent doesn't has trump cards - we play them for sure points
+            // TODO: Make HQC
+            ICollection<Card> ourAces = orderedCardsByPower
+                                    .Where(x => x.Type == CardType.Ace)
+                                    .ToArray();
+
+            if (ourAces.Count > 0 && opponentBiggestTrumpCard == null)
+            {
+                foreach (var ace in ourAces)
+                {
+                    if (this.playedCards.Contains(new Card(ace.Suit, CardType.Ace)))
+                    {
+                        return this.PlayCard(ace);
+                    }
+                }
+            }
+
+            ICollection<Card> ourTens = orderedCardsByPower
+                                                .Where(x => x.Type == CardType.Ten)
+                                                .ToArray();
+
+            if (ourTens.Count > 0 && opponentBiggestTrumpCard == null)
+            {
+                foreach (var ten in ourTens)
+                {
+                    if (this.playedCards.Contains(new Card(ten.Suit, CardType.Ace)))
+                    {
+                        return this.PlayCard(ten);
+                    }
+                }
+            }
+
+            ICollection<Card> ourKings = orderedCardsByPower
+                                    .Where(x => x.Type == CardType.King)
+                                    .ToArray();
+
+            if (ourKings.Count > 0)
+            {
+                foreach (var king in ourKings)
+                {
+                    if (this.playedCards.Contains(new Card(king.Suit, CardType.Ace))
+                        && this.playedCards.Contains(new Card(king.Suit, CardType.Ten)))
+                    {
+                        return this.PlayCard(king);
+                    }
+                }
+            }
+
+            ICollection<Card> ourQueens = orderedCardsByPower
+                        .Where(x => x.Type == CardType.Queen)
+                        .ToArray();
+
+            if (ourQueens.Count > 0)
+            {
+                foreach (var queen in ourQueens)
+                {
+                    if (this.playedCards.Contains(new Card(queen.Suit, CardType.Ace))
+                        && this.playedCards.Contains(new Card(queen.Suit, CardType.Ten))
+                        && this.playedCards.Contains(new Card(queen.Suit, CardType.King)))
+                    {
+                        return this.PlayCard(queen);
+                    }
+                }
+            }
+
+            ICollection<Card> ourJacks = orderedCardsByPower
+            .Where(x => x.Type == CardType.Jack)
+            .ToArray();
+
+            if (ourJacks.Count > 0)
+            {
+                foreach (var jack in ourJacks)
+                {
+                    if (this.playedCards.Contains(new Card(jack.Suit, CardType.Ace))
+                        && this.playedCards.Contains(new Card(jack.Suit, CardType.Ten))
+                        && this.playedCards.Contains(new Card(jack.Suit, CardType.King))
+                        && this.playedCards.Contains(new Card(jack.Suit, CardType.Queen)))
+                    {
+                        return this.PlayCard(jack);
+                    }
+                }
+            }
+
+            var lastCardToPlay = orderedCardsByPower.Where(x => x.Suit != context.TrumpCard.Suit)
+                            .OrderBy(x => this.opponentCards.GetOpponentCards(
                                           this.Cards,
                                           this.playedCards,
                                           context.TrumpCard,
@@ -155,95 +229,13 @@
                                                   .ThenBy(x => x.GetValue())
                                                   .FirstOrDefault();
 
-            if (cardToPlay != null)
+            if (lastCardToPlay != null)
             {
-                return this.PlayCard(cardToPlay);
+                return this.PlayCard(lastCardToPlay);
             }
 
-            // Should never happen
-            cardToPlay = possibleCardsToPlay.OrderBy(x => x.GetValue()).FirstOrDefault();
-            return this.PlayCard(cardToPlay);
-        }
-
-        private PlayerAction ChooseCardWhenPlayingFirstAndWeHaveTheSameSuitCard(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
-        {
-            // Find card that will surely win the trick
-            var opponentHasTrump = this.opponentSuitCardsProvider.GetOpponentCards(
-                                   this.Cards,
-                                   this.playedCards,
-                                   context.CardsLeftInDeck == 0 ? null : context.TrumpCard,
-                                   context.TrumpCard.Suit).Any();
-
-            var trumpCard = this.GetCardWhichWillSurelyWinTheTrick(
-                                 context.TrumpCard.Suit,
-                                 context.CardsLeftInDeck == 0 ? null : context.TrumpCard,
-                                 opponentHasTrump);
-            if (trumpCard != null)
-            {
-                return this.PlayCard(trumpCard);
-            }
-
-            foreach (CardSuit suit in Enum.GetValues(typeof(CardSuit)))
-            {
-                var possibleCard = this.GetCardWhichWillSurelyWinTheTrick(
-                                        suit,
-                                        context.CardsLeftInDeck == 0 ? null : context.TrumpCard,
-                                        opponentHasTrump);
-
-                if (possibleCard != null)
-                {
-                    return this.PlayCard(possibleCard);
-                }
-            }
-
-            // Announce 40 or 20 if possible
-            var action = this.TryToAnnounceTwentyOrFourty(context, possibleCardsToPlay);
-            if (action != null)
-            {
-                return action;
-            }
-
-            // Smallest non-trump card
-            var cardToPlay = possibleCardsToPlay.Where(x => x.Suit != context.TrumpCard.Suit)
-                              .OrderBy(x => x.GetValue())
-                              .FirstOrDefault();
-
-            if (cardToPlay != null)
-            {
-                return this.PlayCard(cardToPlay);
-            }
-
-            // Smallest card
-            cardToPlay = possibleCardsToPlay.OrderBy(x => x.GetValue()).FirstOrDefault();
-            return this.PlayCard(cardToPlay);
-        }
-
-        private Card GetCardWhichWillSurelyWinTheTrick(CardSuit suit, Card trumpCard, bool opponentHasTrump)
-        {
-            var myBiggestCard =
-                this.Cards.Where(x => x.Suit == suit).OrderByDescending(x => x.GetValue()).FirstOrDefault();
-
-            if (myBiggestCard == null)
-            {
-                return null;
-            }
-
-            var opponentBiggestCard =
-                this.opponentSuitCardsProvider.GetOpponentCards(this.Cards, this.playedCards, trumpCard, suit)
-                    .OrderByDescending(x => x.GetValue())
-                    .FirstOrDefault();
-
-            if (!opponentHasTrump && opponentBiggestCard == null)
-            {
-                return myBiggestCard;
-            }
-
-            if (opponentBiggestCard != null && opponentBiggestCard.GetValue() < myBiggestCard.GetValue())
-            {
-                return myBiggestCard;
-            }
-
-            return null;
+            lastCardToPlay = orderedCardsByPower.OrderBy(x => x.GetValue()).FirstOrDefault();
+            return this.PlayCard(lastCardToPlay);
         }
 
         private PlayerAction ChooseCardWhenPlayingSecond(PlayerTurnContext context, ICollection<Card> orderedCardsByPower)
@@ -265,6 +257,7 @@
             // If we don't have a card of the same suit, we play the smallest trump card
             else
             {
+                // We will use trump cards only on strong opponent cards
                 if (context.FirstPlayedCard.Type == CardType.Ten || context.FirstPlayedCard.Type == CardType.Ace)
                 {
                     if (trumpCards.Count > 0)

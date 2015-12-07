@@ -2,11 +2,11 @@
 {
     using System.Collections.Generic;
     using System.Linq;
-    
-    using Logic.Cards;
+
+    using Santase.Logic.Cards;
 
     // TODO: Unit test this class
-    public class OpponentSuitCardsProvider
+    public class OpponentCards
     {
         public ICollection<Card> GetOpponentCards(ICollection<Card> myCards, ICollection<Card> playedCards, Card activeTrumpCard, CardSuit suit)
         {

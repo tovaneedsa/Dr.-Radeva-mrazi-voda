@@ -47,7 +47,7 @@
   <ItemGroup>
     <Compile Include="ConsoleWebPlayer.cs" />
     <Compile Include="Common\GlobalStats.cs" />
-    <Compile Include="Helpers\OpponentSuitCardsProvider.cs" />
+    <Compile Include="Helpers\OpponentCards.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

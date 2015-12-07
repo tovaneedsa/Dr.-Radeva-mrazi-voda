@@ -8,5 +8,7 @@
 
         public const int HasEnoughTrumpCards = 5;
 
+        public const int PointsCloseToVictory = 55;
+
     }
 }
