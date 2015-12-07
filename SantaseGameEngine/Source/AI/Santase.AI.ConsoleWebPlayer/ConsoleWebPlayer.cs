@@ -1,20 +1,23 @@
 ﻿namespace Santase.AI.ConsoleWebPlayer
 {
+    using Common;
+    using Helpers;
     using Logic;
     using Logic.Cards;
     using Logic.Players;
-    using Helpers;
-    using Common;
 
     using System;
     using System.Collections.Generic;
     using System.Linq;
 
-
-    // Overall strategy can be based on the game score. When opponent is close to the winning the player should be riskier.
     public class ConsoleWebPlayer : BasePlayer
     {
-        public ConsoleWebPlayer(string name = "Console Web Player")
+        public ConsoleWebPlayer()
+            : this(WebPlayerConstants.BotName)
+        {
+        }
+
+        public ConsoleWebPlayer(string name)
         {
             this.Name = name;
         }
@@ -27,11 +30,6 @@
 
         public override PlayerAction GetTurn(PlayerTurnContext context)
         {
-            // When possible change the trump card as this is almost always a good move
-            // Changing trump can be non-optimal when:
-            // 1. Current player is planning to close the game and don't want to give additional points to his opponent
-            // 2. The player will close the game and you will give him additional points by giving him bigger trump card instead of 9
-            // 3. Want to confuse the opponent
             if (this.PlayerActionValidator.IsValid(PlayerAction.ChangeTrump(), context, this.Cards))
             {
                 return this.ChangeTrump(context.TrumpCard);
@@ -57,7 +55,6 @@
             this.playedCards.Add(context.SecondPlayedCard);
         }
 
-        // TODO: Improve close game decision
         private bool CloseGame(PlayerTurnContext context)
         {
             // If we have 61 points in the hand, it is possible to win the game with it;
@@ -83,16 +80,37 @@
         }
 
         // TODO: Improve choosing best card to play
+        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         private PlayerAction ChooseCard(PlayerTurnContext context)
         {
             var possibleCardsToPlay = this.PlayerActionValidator.GetPossibleCardsToPlay(context, this.Cards);
-            return context.State.ShouldObserveRules
-                       ? (context.IsFirstPlayerTurn
-                              ? this.ChooseCardWhenPlayingFirstAndRulesApply(context, possibleCardsToPlay)
-                              : this.ChooseCardWhenPlayingSecondAndRulesApply(context, possibleCardsToPlay))
-                       : (context.IsFirstPlayerTurn
-                              ? this.ChooseCardWhenPlayingFirstAndRulesDoNotApply(context, possibleCardsToPlay)
-                              : this.ChooseCardWhenPlayingSecondAndRulesDoNotApply(context, possibleCardsToPlay));
+            if (context.State.ShouldObserveRules)
+            {
+                if (context.IsFirstPlayerTurn)
+                {
+                    return this.ChooseCardWhenPlayingFirstAndWeHaveTheSameSuitCard(context, possibleCardsToPlay);
+                }
+                else
+                {
+                    return this.ChooseCardWhenPlayingSecondAndRulesApply(context, possibleCardsToPlay);
+                }
+            }
+            else
+            {
+                if (context.IsFirstPlayerTurn)
+                {
+                    return this.ChooseCardWhenPlayingFirstAndRulesDoNotApply(context, possibleCardsToPlay);
+                }
+                else
+                {
+                    return this.ChooseCardWhenPlayingSecond(context, possibleCardsToPlay);
+                }
+
+            }
         }
 
         private PlayerAction ChooseCardWhenPlayingFirstAndRulesDoNotApply(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
@@ -144,7 +162,7 @@
             return this.PlayCard(cardToPlay);
         }
 
-        private PlayerAction ChooseCardWhenPlayingFirstAndRulesApply(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
+        private PlayerAction ChooseCardWhenPlayingFirstAndWeHaveTheSameSuitCard(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
         {
             // Find card that will surely win the trick
             var opponentHasTrump = this.opponentSuitCardsProvider.GetOpponentCards(
@@ -222,59 +240,44 @@
             return null;
         }
 
-        private PlayerAction ChooseCardWhenPlayingSecondAndRulesDoNotApply(
-            PlayerTurnContext context,
-            ICollection<Card> possibleCardsToPlay)
+        private PlayerAction ChooseCardWhenPlayingSecond(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
         {
-            // If bigger card is available => play it
-            var biggerCard =
-                possibleCardsToPlay.Where(
+            IEnumerable<Card> orderedPossibleCardsToPlay = possibleCardsToPlay
+                                                                .OrderByDescending(x => x.GetValue());
+
+            ICollection<Card> trumpCards = orderedPossibleCardsToPlay
+                                                .Where(x => x.Suit == context.TrumpCard.Suit)
+                                                .ToArray();
+                                                
+
+            // If we have a bigger card of the same suit, we play it.
+            var biggerCardOfSameSuit =
+                orderedPossibleCardsToPlay.Where(
                     x => x.Suit == context.FirstPlayedCard.Suit && x.GetValue() > context.FirstPlayedCard.GetValue())
-                    .OrderByDescending(x => x.GetValue())
                     .FirstOrDefault();
-            if (biggerCard != null)
+
+            // If we have a card of the same suit, we play it.
+            if (biggerCardOfSameSuit != null)
             {
-                // Don't have Queen and King
-                if (biggerCard.Type != CardType.Queen || !this.Cards.Contains(new Card(biggerCard.Suit, CardType.King)))
+                return this.PlayCard(biggerCardOfSameSuit);
+            }
+            // If we don't have a card of the same suit, we play the smallest trump card
+            else
+            {
+                if (context.FirstPlayedCard.Type == CardType.Ace || context.FirstPlayedCard.Type == CardType.Ten)
                 {
-                    if (biggerCard.Type != CardType.King
-                        || !this.Cards.Contains(new Card(biggerCard.Suit, CardType.Queen)))
+                    if (trumpCards.Count > 0)
                     {
-                        return this.PlayCard(biggerCard);
+                        return this.PlayCard(trumpCards.LastOrDefault());
+                    }
+                    else
+                    {
+                        return this.PlayCard(orderedPossibleCardsToPlay.LastOrDefault());
                     }
                 }
+
+                return this.PlayCard(orderedPossibleCardsToPlay.LastOrDefault());
             }
-
-            // When opponent plays Ace or Ten => play trump card
-            if (context.FirstPlayedCard.Type == CardType.Ace || context.FirstPlayedCard.Type == CardType.Ten)
-            {
-                if (possibleCardsToPlay.Contains(new Card(context.TrumpCard.Suit, CardType.Jack)))
-                {
-                    return this.PlayCard(new Card(context.TrumpCard.Suit, CardType.Jack));
-                }
-
-                if (possibleCardsToPlay.Contains(new Card(context.TrumpCard.Suit, CardType.Nine))
-                    && context.TrumpCard.Type == CardType.Jack)
-                {
-                    return this.PlayCard(new Card(context.TrumpCard.Suit, CardType.Nine));
-                }
-
-                if (possibleCardsToPlay.Contains(new Card(context.TrumpCard.Suit, CardType.Queen))
-                    && this.playedCards.Contains(new Card(context.TrumpCard.Suit, CardType.King)))
-                {
-                    return this.PlayCard(new Card(context.TrumpCard.Suit, CardType.Queen));
-                }
-
-                if (possibleCardsToPlay.Contains(new Card(context.TrumpCard.Suit, CardType.King))
-                    && this.playedCards.Contains(new Card(context.TrumpCard.Suit, CardType.Queen)))
-                {
-                    return this.PlayCard(new Card(context.TrumpCard.Suit, CardType.King));
-                }
-            }
-
-            // Smallest card
-            var smallestCard = possibleCardsToPlay.OrderBy(x => x.GetValue()).FirstOrDefault();
-            return this.PlayCard(smallestCard);
         }
 
         private PlayerAction ChooseCardWhenPlayingSecondAndRulesApply(

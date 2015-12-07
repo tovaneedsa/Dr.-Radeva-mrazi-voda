@@ -2,8 +2,8 @@
 {
     using System.Collections.Generic;
 
-    using Santase.Logic.Cards;
-    using Santase.Logic.Players;
+    using Cards;
+    using Players;
 
     public interface IPlayerActionValidator
     {

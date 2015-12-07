@@ -6,6 +6,7 @@
     using Santase.Logic;
     using Santase.Logic.GameMechanics;
     using Santase.Logic.Players;
+    using AI.ConsoleWebPlayer;
 
     public static class Program
     {
@@ -30,11 +31,11 @@
         // ReSharper disable once UnusedMember.Local
         private static ISantaseGame CreateGameVersusBot()
         {
-            Console.BufferHeight = Console.WindowHeight = 17;
+            Console.BufferHeight = Console.WindowHeight = 50;
             Console.BufferWidth = Console.WindowWidth = 50;
 
             IPlayer firstPlayer = new ConsolePlayer(5, 10);
-            IPlayer secondPlayer = new SmartPlayer();
+            IPlayer secondPlayer = new ConsoleWebPlayer();
             ISantaseGame game = new SantaseGame(firstPlayer, secondPlayer);
             return game;
         }
