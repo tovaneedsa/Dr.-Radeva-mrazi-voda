@@ -22,11 +22,11 @@
             this.Name = name;
         }
 
+        public override string Name { get; }
+
         private readonly ICollection<Card> playedCards = new List<Card>();
 
         private readonly OpponentSuitCardsProvider opponentSuitCardsProvider = new OpponentSuitCardsProvider();
-
-        public override string Name { get; }
 
         public override PlayerAction GetTurn(PlayerTurnContext context)
         {
@@ -87,36 +87,39 @@
         // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         private PlayerAction ChooseCard(PlayerTurnContext context)
         {
-            var possibleCardsToPlay = this.PlayerActionValidator.GetPossibleCardsToPlay(context, this.Cards);
+            var orderedCardsByPower = this.PlayerActionValidator.GetPossibleCardsToPlay(context, this.Cards)
+                                                      .OrderByDescending(x => x.GetValue())
+                                                      .ToArray();
+
             if (context.State.ShouldObserveRules)
             {
                 if (context.IsFirstPlayerTurn)
                 {
-                    return this.ChooseCardWhenPlayingFirstAndWeHaveTheSameSuitCard(context, possibleCardsToPlay);
+                    return this.ChooseCardWhenPlayingFirstAndWeHaveTheSameSuitCard(context, orderedCardsByPower);
                 }
                 else
                 {
-                    return this.ChooseCardWhenPlayingSecondAndRulesApply(context, possibleCardsToPlay);
+                    return this.ChooseCardWhenPlayingSecond(context, orderedCardsByPower);
                 }
             }
             else
             {
                 if (context.IsFirstPlayerTurn)
                 {
-                    return this.ChooseCardWhenPlayingFirstAndRulesDoNotApply(context, possibleCardsToPlay);
+                    return this.ChooseCardWhenPlayingFirst(context, orderedCardsByPower);
                 }
                 else
                 {
-                    return this.ChooseCardWhenPlayingSecond(context, possibleCardsToPlay);
+                    return this.ChooseCardWhenPlayingSecond(context, orderedCardsByPower);
                 }
 
             }
         }
 
-        private PlayerAction ChooseCardWhenPlayingFirstAndRulesDoNotApply(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
+        private PlayerAction ChooseCardWhenPlayingFirst(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
         {
             // Announce 40 or 20 if possible
-            var action = this.TryToAnnounce20Or40(context, possibleCardsToPlay);
+            var action = this.TryToAnnounceTwentyOrFourty(context, possibleCardsToPlay);
             if (action != null)
             {
                 return action;
@@ -186,6 +189,7 @@
                                         suit,
                                         context.CardsLeftInDeck == 0 ? null : context.TrumpCard,
                                         opponentHasTrump);
+
                 if (possibleCard != null)
                 {
                     return this.PlayCard(possibleCard);
@@ -193,7 +197,7 @@
             }
 
             // Announce 40 or 20 if possible
-            var action = this.TryToAnnounce20Or40(context, possibleCardsToPlay);
+            var action = this.TryToAnnounceTwentyOrFourty(context, possibleCardsToPlay);
             if (action != null)
             {
                 return action;
@@ -203,6 +207,7 @@
             var cardToPlay = possibleCardsToPlay.Where(x => x.Suit != context.TrumpCard.Suit)
                               .OrderBy(x => x.GetValue())
                               .FirstOrDefault();
+
             if (cardToPlay != null)
             {
                 return this.PlayCard(cardToPlay);
@@ -217,6 +222,7 @@
         {
             var myBiggestCard =
                 this.Cards.Where(x => x.Suit == suit).OrderByDescending(x => x.GetValue()).FirstOrDefault();
+
             if (myBiggestCard == null)
             {
                 return null;
@@ -240,20 +246,15 @@
             return null;
         }
 
-        private PlayerAction ChooseCardWhenPlayingSecond(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
+        private PlayerAction ChooseCardWhenPlayingSecond(PlayerTurnContext context, ICollection<Card> orderedCardsByPower)
         {
-            IEnumerable<Card> orderedPossibleCardsToPlay = possibleCardsToPlay
-                                                                .OrderByDescending(x => x.GetValue());
-
-            ICollection<Card> trumpCards = orderedPossibleCardsToPlay
+            ICollection<Card> trumpCards = orderedCardsByPower
                                                 .Where(x => x.Suit == context.TrumpCard.Suit)
                                                 .ToArray();
                                                 
-
             // If we have a bigger card of the same suit, we play it.
-            var biggerCardOfSameSuit =
-                orderedPossibleCardsToPlay.Where(
-                    x => x.Suit == context.FirstPlayedCard.Suit && x.GetValue() > context.FirstPlayedCard.GetValue())
+            var biggerCardOfSameSuit = orderedCardsByPower
+                    .Where(x => x.Suit == context.FirstPlayedCard.Suit && x.GetValue() > context.FirstPlayedCard.GetValue())
                     .FirstOrDefault();
 
             // If we have a card of the same suit, we play it.
@@ -264,7 +265,7 @@
             // If we don't have a card of the same suit, we play the smallest trump card
             else
             {
-                if (context.FirstPlayedCard.Type == CardType.Ace || context.FirstPlayedCard.Type == CardType.Ten)
+                if (context.FirstPlayedCard.Type == CardType.Ten || context.FirstPlayedCard.Type == CardType.Ace)
                 {
                     if (trumpCards.Count > 0)
                     {
@@ -272,45 +273,15 @@
                     }
                     else
                     {
-                        return this.PlayCard(orderedPossibleCardsToPlay.LastOrDefault());
+                        return this.PlayCard(orderedCardsByPower.LastOrDefault());
                     }
                 }
 
-                return this.PlayCard(orderedPossibleCardsToPlay.LastOrDefault());
+                return this.PlayCard(orderedCardsByPower.LastOrDefault());
             }
         }
 
-        private PlayerAction ChooseCardWhenPlayingSecondAndRulesApply(
-            PlayerTurnContext context,
-            ICollection<Card> possibleCardsToPlay)
-        {
-            // If bigger card is available => play it
-            var biggerCard =
-                possibleCardsToPlay.Where(
-                    x => x.Suit == context.FirstPlayedCard.Suit && x.GetValue() > context.FirstPlayedCard.GetValue())
-                    .OrderByDescending(x => x.GetValue())
-                    .FirstOrDefault();
-            if (biggerCard != null)
-            {
-                return this.PlayCard(biggerCard);
-            }
-
-            // Play smallest trump card?
-            var smallestTrumpCard =
-                possibleCardsToPlay.Where(x => x.Suit == context.TrumpCard.Suit)
-                    .OrderBy(x => x.GetValue())
-                    .FirstOrDefault();
-            if (smallestTrumpCard != null)
-            {
-                return this.PlayCard(smallestTrumpCard);
-            }
-
-            // Smallest card
-            var cardToPlay = possibleCardsToPlay.OrderBy(x => x.GetValue()).FirstOrDefault();
-            return this.PlayCard(cardToPlay);
-        }
-
-        private PlayerAction TryToAnnounce20Or40(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
+        private PlayerAction TryToAnnounceTwentyOrFourty(PlayerTurnContext context, ICollection<Card> possibleCardsToPlay)
         {
             // Choose card with announce 40 if possible
             foreach (var card in possibleCardsToPlay)
