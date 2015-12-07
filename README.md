@@ -1,31 +1,13 @@
-# Santase Game Engine
+# Santase / Sixty-Six #
+**While creating the bot, we were following the rules of the game.
+ We would like to add that we have never played Sixty-Six and it was a challenge for us to see if we would succeed. No algorithms have been applied.
+We used parented collections IComparable and IEnumerable.**
 
-**Santase** (known as **66**, Сантасе, Sixty-six or **Sechsundsechzig**) is a well-known card game in Bulgaria and also played in Germany.
+1.	According to the game rules, a player can end the game in a few conditions, when he is sure that he will win the game. We have implemented the following situation in which, if a player has 5 trumps or 4 trumps which are as follows: Ace, Ten, King and a Queen, he will have 61 points, only from them and he will be needing 5 extra points, but the risk to lose the game is very little.
 
-It is a fast **6-card game** for **2 players** played with a deck of 24 cards consisting of the _Ace_, _Ten_, _King_, _Queen_, _Jack_ and _Nine_.
+2.	Implementation of the game has been added, so the player can pick an optimal card for the game. Logic that the player should follow is from higher than lower card, depending on what kind of cards he has in his hand. Before that a check is performed to see if there are 20 and 40 and if he does, it is being announced.
 
-### Desktop UI (Windows Universal App)
+3.	Implementation of the player, if he is playing second. The logic of the player should be to try to answer to his opponent, while checking if he has a higher (card/hand), to take the hand or if not having the same suit to trump with the lost trump he has. If he cannot trump, he has to throw his lowest card. 
 
-![Santase desktop screenshot](https://github.com/NikolayIT/SantaseGameEngine/blob/master/Documentation/Screenshots/Desktop_1.png?raw=true)
 
-### Rules of the game
-
-https://github.com/NikolayIT/SantaseGameEngine/blob/master/Documentation/Rules.md
-
-Wikipedia: https://en.wikipedia.org/wiki/Sixty-six_(card_game)
-
-Bulgarian: https://bg.wikipedia.org/wiki/%D0%A1%D0%B0%D0%BD%D1%82%D0%B0%D1%81%D0%B5
-
-### Build status
-
-[![Build status](https://ci.appveyor.com/api/projects/status/sm52qf5lrl9891em?svg=true)](https://ci.appveyor.com/project/NikolayIT/santasegameengine)
-
-The code in `Santase.Logic` library is unit tested with more than **250 tests** and is **100% covered**.
-
-### Source code requirements
-
-**Visual Studio 2015** is required in order for the code to be compiled correctly.
-
-### Video with creating the initial code (in Bulgarian)
-
-https://www.youtube.com/watch?v=VidaoNJ4X2Y
+**Overall our bot has a lot of improvements to undergo, but as I mentioned in the beginning, we have never played Sixty-Six and we would like to learn how to do such things and that is the reason we entered this project.**
